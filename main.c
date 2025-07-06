@@ -329,6 +329,14 @@ int save_wav_binary(const char* filename, const uint8_t* buffer, size_t size) {
     return (written == size) ? 0 : -1;
 }
 void write_wav(const char* input, const char* output, const char* filename, const int hidden_bits) {
+    char* extension = strrchr(filename, '.');
+    size_t ext_len_chars = NULL;
+
+    if (extension != NULL && *(extension + 1) != '\0') {
+        extension++;
+        ext_len_chars = strlen(extension);
+    }
+
     FILE* file = fopen(filename, "rb");
     if (!file) {
         perror("Failed to open file");
@@ -363,7 +371,7 @@ void write_wav(const char* input, const char* output, const char* filename, cons
     }
 
     size_t wav_capacity_bits = (wav_size - WAV_HEADER_SIZE) / 2 * hidden_bits;
-    size_t payload_bits      = (original_size + 4 + 0) * 8;
+    size_t payload_bits      = (original_size + ext_len_chars + 1 + 8) * 8;
 
     printf("Wav capacity: %d bytes\n", wav_capacity_bits / 8);
     printf("Payload size: %d bytes\n", payload_bits / 8);
@@ -378,7 +386,7 @@ void write_wav(const char* input, const char* output, const char* filename, cons
 
     // Prepare payload: 4-byte length header + payload data
     uint32_t payload_len = (uint32_t)original_size;
-    unsigned char* payload_with_size = malloc(0 + 4 + original_size);
+    unsigned char* payload_with_size = malloc(ext_len_chars + 1 + 4 + original_size);
     if (!payload_with_size) {
         perror("Failed to allocate size buffer");
         free(hide);
@@ -392,9 +400,15 @@ void write_wav(const char* input, const char* output, const char* filename, cons
     payload_with_size[2] = (payload_len >> 16) & 0xFF;
     payload_with_size[3] = (payload_len >> 24) & 0xFF;
 
-    memcpy(payload_with_size + 4 + 0, hide, original_size);
+    payload_with_size[4] = ext_len_chars;
 
-    size_t full_payload_bits = (0 + 4 + original_size) * 8;
+    for (int i = 0; i < ext_len_chars; i++) {
+        payload_with_size[5 + i] = extension[i];
+    }
+
+    memcpy(payload_with_size + 4 + 1 + ext_len_chars, hide, original_size);
+
+    size_t full_payload_bits = (1 + 4 + original_size + ext_len_chars) * 8;
 
     size_t j = 0;
     int bit = 7;
@@ -449,7 +463,8 @@ int read_wav(const char* input, const char* output) {
 
     size_t byte_index = 0;
 
-    unsigned char size_buf[4] = {0};
+    unsigned char* size_buf = malloc(5);
+    memset(size_buf, 0, 5);
     unsigned char hidden_bits = 0;
 
     size_t bit_index = 0;
@@ -462,11 +477,11 @@ int read_wav(const char* input, const char* output) {
     }
 
     bit_index = 0;
-    for (size_t i = WAV_HEADER_SIZE + 16; i + 1 < wav_size && bit_index < 32; i += 2) {
+    for (size_t i = WAV_HEADER_SIZE + 16; i + 1 < wav_size && bit_index < 40; i += 2) {
         int16_t sample = buffer[i] | (buffer[i + 1] << 8);
 
         for (int b = hidden_bits - 1; b >= 0; --b) {
-            if (bit_index < 32) {
+            if (bit_index < 40) {
                 unsigned char extracted_bit = (sample >> b) & 1;
                 size_buf[bit_index / 8] |= (extracted_bit << (7 - (bit_index % 8)));
                 bit_index++;
@@ -476,6 +491,35 @@ int read_wav(const char* input, const char* output) {
         }
     }
 
+    int8_t extension_len = size_buf[4];
+
+
+    unsigned char* extension = malloc(extension_len);
+    memset(extension, 0, extension_len);
+
+    bit_index = 0;
+    for (size_t i = WAV_HEADER_SIZE + 16 + 40; i + 1 < wav_size && bit_index < (extension_len * 8); i += 2) {
+        int16_t sample = buffer[i] | (buffer[i + 1] << 8);
+
+        for (int b = hidden_bits - 1; b >= 0; --b) {
+            if (bit_index < (extension_len * 8)) {
+                unsigned char extracted_bit = (sample >> b) & 1;
+                extension[bit_index / 8] |= (extracted_bit << (7 - (bit_index % 8)));
+                bit_index++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    size_t filename_len = strlen(output);
+    char* result = malloc(filename_len + 1 + extension_len + 1);
+    if (!result) return NULL;
+
+    memcpy(result, output, filename_len);
+    result[filename_len] = '.';
+    memcpy(result + filename_len + 1, extension, extension_len);
+    result[filename_len + 1 + extension_len] = '\0';
 
     uint32_t decoded_payload_size = size_buf[0]
                                   | (size_buf[1] << 8)
@@ -488,7 +532,7 @@ int read_wav(const char* input, const char* output) {
     size_t payload_bit_index = 0;
     size_t total_payload_bits = decoded_payload_size * 8;
 
-    for (size_t i = WAV_HEADER_SIZE + 64 + 16; i + 1 < wav_size && payload_bit_index < total_payload_bits; i += 2) {
+    for (size_t i = WAV_HEADER_SIZE + 16 + 40 + extension_len * 8 * 2; i + 1 < wav_size && payload_bit_index < total_payload_bits; i += 2) {
         int16_t sample = buffer[i] | (buffer[i + 1] << 8);
 
         for (int b = hidden_bits - 1; b >= 0; --b) {
@@ -503,7 +547,7 @@ int read_wav(const char* input, const char* output) {
     }
 
     if (payload_bit_index > 0) {
-        FILE* out = fopen(output, "wb");
+        FILE* out = fopen(result, "wb");
         if (!out) {
             perror("Failed to write output file");
             free(hidden);
@@ -512,7 +556,7 @@ int read_wav(const char* input, const char* output) {
         }
         fwrite(hidden, 1, (payload_bit_index / 8), out);
         fclose(out);
-        printf("Successfully wrote %zu bytes to %s\n", (payload_bit_index / 8), output);
+        printf("Successfully wrote %zu bytes to %s\n", (payload_bit_index / 8), result);
     }
 
     free(hidden);
@@ -562,92 +606,94 @@ struct arguments {
 };
 
 int main(int argc, char *argv[]) {
-    struct arguments args = {0};
+    // struct arguments args = {0};
 
-    static struct option long_options[] = {
-        {"read",              no_argument,       0, 'r'},
-        {"write",             no_argument,       0, 'w'},
-        {"input_file",        required_argument, 0, 'i'},
-        {"output_file",       required_argument, 0, 'o'},
-        {"file_to_hide_path", required_argument, 0, 'f'},
-        {"bits_to_hide_in",   required_argument, 0, 'b'},
-        {0, 0, 0, 0}
-    };
+    // static struct option long_options[] = {
+    //     {"read",              no_argument,       0, 'r'},
+    //     {"write",             no_argument,       0, 'w'},
+    //     {"input_file",        required_argument, 0, 'i'},
+    //     {"output_file",       required_argument, 0, 'o'},
+    //     {"file_to_hide_path", required_argument, 0, 'f'},
+    //     {"bits_to_hide_in",   required_argument, 0, 'b'},
+    //     {0, 0, 0, 0}
+    // };
 
-    int opt;
-    int option_index = 0;
+    // int opt;
+    // int option_index = 0;
 
-    while ((opt = getopt_long(argc, argv, "rwi:o:f:b:", long_options, &option_index)) != -1) {
-        switch (opt) {
-            case 'r': args.read_mode = true; break;
-            case 'w': args.write_mode = true; break;
-            case 'i': args.input_file = optarg; break;
-            case 'o': args.output_file = optarg; break;
-            case 'f': args.file_to_hide_path = optarg; break;
-            case 'b': args.bits_to_hide_in = optarg; break;
-            default:
-                fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Unknown option.\n");
-                exit(EXIT_FAILURE);
-        }
-    }
+    // while ((opt = getopt_long(argc, argv, "rwi:o:f:b:", long_options, &option_index)) != -1) {
+    //     switch (opt) {
+    //         case 'r': args.read_mode = true; break;
+    //         case 'w': args.write_mode = true; break;
+    //         case 'i': args.input_file = optarg; break;
+    //         case 'o': args.output_file = optarg; break;
+    //         case 'f': args.file_to_hide_path = optarg; break;
+    //         case 'b': args.bits_to_hide_in = optarg; break;
+    //         default:
+    //             fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Unknown option.\n");
+    //             exit(EXIT_FAILURE);
+    //     }
+    // }
 
-    // Validate mutually exclusive read/write
-    if ((args.read_mode && args.write_mode) || (!args.read_mode && !args.write_mode)) {
-        fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Specify exactly one of --read or --write.\n");
-        exit(EXIT_FAILURE);
-    }
+    // // Validate mutually exclusive read/write
+    // if ((args.read_mode && args.write_mode) || (!args.read_mode && !args.write_mode)) {
+    //     fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Specify exactly one of --read or --write.\n");
+    //     exit(EXIT_FAILURE);
+    // }
 
-    // Check required arguments
-    char missing[256] = {0};
-    bool has_missing = false;
+    // // Check required arguments
+    // char missing[256] = {0};
+    // bool has_missing = false;
 
-    if (args.read_mode) {
-        if (!args.input_file) {
-            strcat(missing, "--input_file");
-            has_missing = true;
-        }
-        if (!args.output_file) {
-            if (has_missing) strcat(missing, ", ");
-            strcat(missing, "--output_file");
-            has_missing = true;
-        }
-    } else if (args.write_mode) {
-        if (!args.input_file) {
-            strcat(missing, "--input_file");
-            has_missing = true;
-        }
-        if (!args.output_file) {
-            if (has_missing) strcat(missing, ", ");
-            strcat(missing, "--output_file");
-            has_missing = true;
-        }
-        if (!args.file_to_hide_path) {
-            if (has_missing) strcat(missing, ", ");
-            strcat(missing, "--file_to_hide_path");
-            has_missing = true;
-        }
-        if (!args.bits_to_hide_in) {
-            if (has_missing) strcat(missing, ", ");
-            strcat(missing, "--bits_to_hide_in");
-            has_missing = true;
-        }
-    }
+    // if (args.read_mode) {
+    //     if (!args.input_file) {
+    //         strcat(missing, "--input_file");
+    //         has_missing = true;
+    //     }
+    //     if (!args.output_file) {
+    //         if (has_missing) strcat(missing, ", ");
+    //         strcat(missing, "--output_file");
+    //         has_missing = true;
+    //     }
+    // } else if (args.write_mode) {
+    //     if (!args.input_file) {
+    //         strcat(missing, "--input_file");
+    //         has_missing = true;
+    //     }
+    //     if (!args.output_file) {
+    //         if (has_missing) strcat(missing, ", ");
+    //         strcat(missing, "--output_file");
+    //         has_missing = true;
+    //     }
+    //     if (!args.file_to_hide_path) {
+    //         if (has_missing) strcat(missing, ", ");
+    //         strcat(missing, "--file_to_hide_path");
+    //         has_missing = true;
+    //     }
+    //     if (!args.bits_to_hide_in) {
+    //         if (has_missing) strcat(missing, ", ");
+    //         strcat(missing, "--bits_to_hide_in");
+    //         has_missing = true;
+    //     }
+    // }
 
-    if (has_missing) {
-        fprintf(stderr, COLOR_RED "Error:" COLOR_RESET
-                " Missing required option%s in %s mode: %s\n",
-                strchr(missing, ',') ? "s" : "",
-                args.read_mode ? "read" : "write",
-                missing);
-        exit(EXIT_FAILURE);
-    }
+    // if (has_missing) {
+    //     fprintf(stderr, COLOR_RED "Error:" COLOR_RESET
+    //             " Missing required option%s in %s mode: %s\n",
+    //             strchr(missing, ',') ? "s" : "",
+    //             args.read_mode ? "read" : "write",
+    //             missing);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    // Proceed to call appropriate function
-    if (args.write_mode) {
-        write_wav(args.input_file, args.output_file, args.file_to_hide_path, atoi(args.bits_to_hide_in));
-    } else if (args.read_mode) {
-        read_wav(args.input_file, args.output_file);
-    }
+    // // Proceed to call appropriate function
+    // if (args.write_mode) {
+    //     write_wav(args.input_file, args.output_file, args.file_to_hide_path, atoi(args.bits_to_hide_in));
+    // } else if (args.read_mode) {
+    //     read_wav(args.input_file, args.output_file);
+    // }
 
+    write_wav("input.wav", "output.wav", "donna.mp3", 2);
+    read_wav("output.wav", "recon");
     return EXIT_SUCCESS;
 }
