@@ -606,94 +606,92 @@ struct arguments {
 };
 
 int main(int argc, char *argv[]) {
-    // struct arguments args = {0};
+    struct arguments args = {0};
 
-    // static struct option long_options[] = {
-    //     {"read",              no_argument,       0, 'r'},
-    //     {"write",             no_argument,       0, 'w'},
-    //     {"input_file",        required_argument, 0, 'i'},
-    //     {"output_file",       required_argument, 0, 'o'},
-    //     {"file_to_hide_path", required_argument, 0, 'f'},
-    //     {"bits_to_hide_in",   required_argument, 0, 'b'},
-    //     {0, 0, 0, 0}
-    // };
+    static struct option long_options[] = {
+        {"read",              no_argument,       0, 'r'},
+        {"write",             no_argument,       0, 'w'},
+        {"input_file",        required_argument, 0, 'i'},
+        {"output_file",       required_argument, 0, 'o'},
+        {"file_to_hide_path", required_argument, 0, 'f'},
+        {"bits_to_hide_in",   required_argument, 0, 'b'},
+        {0, 0, 0, 0}
+    };
 
-    // int opt;
-    // int option_index = 0;
+    int opt;
+    int option_index = 0;
 
-    // while ((opt = getopt_long(argc, argv, "rwi:o:f:b:", long_options, &option_index)) != -1) {
-    //     switch (opt) {
-    //         case 'r': args.read_mode = true; break;
-    //         case 'w': args.write_mode = true; break;
-    //         case 'i': args.input_file = optarg; break;
-    //         case 'o': args.output_file = optarg; break;
-    //         case 'f': args.file_to_hide_path = optarg; break;
-    //         case 'b': args.bits_to_hide_in = optarg; break;
-    //         default:
-    //             fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Unknown option.\n");
-    //             exit(EXIT_FAILURE);
-    //     }
-    // }
+    while ((opt = getopt_long(argc, argv, "rwi:o:f:b:", long_options, &option_index)) != -1) {
+        switch (opt) {
+            case 'r': args.read_mode = true; break;
+            case 'w': args.write_mode = true; break;
+            case 'i': args.input_file = optarg; break;
+            case 'o': args.output_file = optarg; break;
+            case 'f': args.file_to_hide_path = optarg; break;
+            case 'b': args.bits_to_hide_in = optarg; break;
+            default:
+                fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Unknown option.\n");
+                exit(EXIT_FAILURE);
+        }
+    }
 
-    // // Validate mutually exclusive read/write
-    // if ((args.read_mode && args.write_mode) || (!args.read_mode && !args.write_mode)) {
-    //     fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Specify exactly one of --read or --write.\n");
-    //     exit(EXIT_FAILURE);
-    // }
+    // Validate mutually exclusive read/write
+    if ((args.read_mode && args.write_mode) || (!args.read_mode && !args.write_mode)) {
+        fprintf(stderr, COLOR_RED "Error:" COLOR_RESET " Specify exactly one of --read or --write.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    // // Check required arguments
-    // char missing[256] = {0};
-    // bool has_missing = false;
+    // Check required arguments
+    char missing[256] = {0};
+    bool has_missing = false;
 
-    // if (args.read_mode) {
-    //     if (!args.input_file) {
-    //         strcat(missing, "--input_file");
-    //         has_missing = true;
-    //     }
-    //     if (!args.output_file) {
-    //         if (has_missing) strcat(missing, ", ");
-    //         strcat(missing, "--output_file");
-    //         has_missing = true;
-    //     }
-    // } else if (args.write_mode) {
-    //     if (!args.input_file) {
-    //         strcat(missing, "--input_file");
-    //         has_missing = true;
-    //     }
-    //     if (!args.output_file) {
-    //         if (has_missing) strcat(missing, ", ");
-    //         strcat(missing, "--output_file");
-    //         has_missing = true;
-    //     }
-    //     if (!args.file_to_hide_path) {
-    //         if (has_missing) strcat(missing, ", ");
-    //         strcat(missing, "--file_to_hide_path");
-    //         has_missing = true;
-    //     }
-    //     if (!args.bits_to_hide_in) {
-    //         if (has_missing) strcat(missing, ", ");
-    //         strcat(missing, "--bits_to_hide_in");
-    //         has_missing = true;
-    //     }
-    // }
+    if (args.read_mode) {
+        if (!args.input_file) {
+            strcat(missing, "--input_file");
+            has_missing = true;
+        }
+        if (!args.output_file) {
+            if (has_missing) strcat(missing, ", ");
+            strcat(missing, "--output_file");
+            has_missing = true;
+        }
+    } else if (args.write_mode) {
+        if (!args.input_file) {
+            strcat(missing, "--input_file");
+            has_missing = true;
+        }
+        if (!args.output_file) {
+            if (has_missing) strcat(missing, ", ");
+            strcat(missing, "--output_file");
+            has_missing = true;
+        }
+        if (!args.file_to_hide_path) {
+            if (has_missing) strcat(missing, ", ");
+            strcat(missing, "--file_to_hide_path");
+            has_missing = true;
+        }
+        if (!args.bits_to_hide_in) {
+            if (has_missing) strcat(missing, ", ");
+            strcat(missing, "--bits_to_hide_in");
+            has_missing = true;
+        }
+    }
 
-    // if (has_missing) {
-    //     fprintf(stderr, COLOR_RED "Error:" COLOR_RESET
-    //             " Missing required option%s in %s mode: %s\n",
-    //             strchr(missing, ',') ? "s" : "",
-    //             args.read_mode ? "read" : "write",
-    //             missing);
-    //     exit(EXIT_FAILURE);
-    // }
+    if (has_missing) {
+        fprintf(stderr, COLOR_RED "Error:" COLOR_RESET
+                " Missing required option%s in %s mode: %s\n",
+                strchr(missing, ',') ? "s" : "",
+                args.read_mode ? "read" : "write",
+                missing);
+        exit(EXIT_FAILURE);
+    }
 
-    // // Proceed to call appropriate function
-    // if (args.write_mode) {
-    //     write_wav(args.input_file, args.output_file, args.file_to_hide_path, atoi(args.bits_to_hide_in));
-    // } else if (args.read_mode) {
-    //     read_wav(args.input_file, args.output_file);
-    // }
+    // Proceed to call appropriate function
+    if (args.write_mode) {
+        write_wav(args.input_file, args.output_file, args.file_to_hide_path, atoi(args.bits_to_hide_in));
+    } else if (args.read_mode) {
+        read_wav(args.input_file, args.output_file);
+    }
 
-    write_wav("input.wav", "output.wav", "donna.mp3", 2);
-    read_wav("output.wav", "recon");
     return EXIT_SUCCESS;
 }
