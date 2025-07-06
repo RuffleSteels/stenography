@@ -330,7 +330,7 @@ int save_wav_binary(const char* filename, const uint8_t* buffer, size_t size) {
 }
 void write_wav(const char* input, const char* output, const char* filename, const int hidden_bits) {
     char* extension = strrchr(filename, '.');
-    size_t ext_len_chars = NULL;
+    size_t ext_len_chars = 0;
 
     if (extension != NULL && *(extension + 1) != '\0') {
         extension++;
@@ -514,7 +514,7 @@ int read_wav(const char* input, const char* output) {
 
     size_t filename_len = strlen(output);
     char* result = malloc(filename_len + 1 + extension_len + 1);
-    if (!result) return NULL;
+    if (!result) return 0;
 
     memcpy(result, output, filename_len);
     result[filename_len] = '.';
