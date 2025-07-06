@@ -29,6 +29,7 @@
 
 cmake_minimum_required(VERSION 3.10)
 project(WavStenography C)
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -s")
 
 # Add the executable
 add_executable(wav_stenography main.c)

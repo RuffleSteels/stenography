@@ -17,22 +17,28 @@ jobs:
 
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
     - name: Configure
       run: |
         mkdir -p build
         cd build
-        cmake ..
+        cmake -DCMAKE_BUILD_TYPE=Release ..
 
     - name: Build Binary
       run: |
         cd build
         make
 
+    - name: Strip binary
+      run: |
+        strip build/wav_stenography || true
+
     - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
         name: wav_stenography_linux
-        path: build/
+        path: build/wav_stenography
+
   build-windows:
     name: Windows Build
     runs-on: ubuntu-latest
@@ -50,18 +56,23 @@ jobs:
         run: |
           mkdir -p build-windows
           cd build-windows
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw64.cmake
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw64.cmake -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Binary
         run: |
           cd build-windows
           make
 
+      - name: Strip binary
+        run: |
+          x86_64-w64-mingw32-strip build-windows/wav_stenography.exe || true
+
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
           name: wav_stenography_windows
-          path: build-windows/
+          path: build-windows/wav_stenography.exe
+
   build-macos:
     name: MacOS Build
     runs-on: macos-latest
@@ -74,10 +85,13 @@ jobs:
         run: brew install cmake
 
       - name: Configure
-        run: cmake -S . -B build
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Binary
         run: cmake --build build --config Release
+
+      - name: Strip binary
+        run: strip build/wav_stenography || true
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
