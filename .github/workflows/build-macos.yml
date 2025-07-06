@@ -31,7 +31,7 @@ jobs:
     - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
-        name: linux-build
+        name: wav_stenography_linux
         path: build/
   build-windows:
     name: Windows Build
@@ -60,7 +60,7 @@ jobs:
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: windows-cross-build
+          name: wav_stenography_windows
           path: build-windows/
   build-macos:
     name: MacOS Build
@@ -82,5 +82,5 @@ jobs:
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: media_reader-mac
-          path: build/media_reader
+          name: wav_stenography_mac
+          path: build/wav_stenography
