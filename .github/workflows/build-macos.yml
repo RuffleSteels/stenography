@@ -1,4 +1,4 @@
-name: Build macOS Binary
+name: Build Binaries
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-linux:
-    name: Build on Linux (Ubuntu)
+    name: Linux Build
     runs-on: ubuntu-latest
 
     steps:
@@ -17,53 +17,57 @@ jobs:
 
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y cmake build-essential
-
-    - name: Configure and build
+    - name: Configure
       run: |
         mkdir -p build
         cd build
         cmake ..
+
+    - name: Build Binary
+      run: |
+        cd build
         make
 
-    - name: Upload Linux binary
+    - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
         name: linux-build
         path: build/
-  build-windows-on-linux:
-    name: Build Windows Binary on Linux
+  build-windows:
+    name: Windows Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies (MinGW and CMake)
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake mingw-w64
 
-      - name: Configure with Windows Toolchain
+      - name: Configure
         run: |
           mkdir -p build-windows
           cd build-windows
           cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw64.cmake
 
-      - name: Build Windows binary
+      - name: Build Binary
         run: |
           cd build-windows
           make
 
-      - name: Upload Windows binary (cross-compiled)
+      - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
           name: windows-cross-build
           path: build-windows/
   build-macos:
+    name: MacOS Build
     runs-on: macos-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Install dependencies
@@ -72,10 +76,10 @@ jobs:
       - name: Configure
         run: cmake -S . -B build
 
-      - name: Build
+      - name: Build Binary
         run: cmake --build build --config Release
 
-      - name: Upload binary
+      - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
           name: media_reader-mac

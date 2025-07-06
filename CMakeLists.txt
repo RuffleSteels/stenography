@@ -28,7 +28,7 @@
 
 
 cmake_minimum_required(VERSION 3.10)
-project(MediaReader C)
+project(WavStenography C)
 
 # Add the executable
-add_executable(media_reader main.c)
+add_executable(wav_stenography main.c)
