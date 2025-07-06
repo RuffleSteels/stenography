@@ -7,6 +7,50 @@ on:
     branches: [ main ]
 
 jobs:
+  build-linux:
+    name: Build on Linux (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+    - name: Configure and build
+      run: |
+        mkdir -p build
+        cd build
+        cmake ..
+        make
+
+    - name: Upload Linux binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-build
+        path: build/
+
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        cmake --build . --config Release
+
+    - name: Upload Windows binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build
+        path: build/Release/
   build-macos:
     runs-on: macos-latest
 
