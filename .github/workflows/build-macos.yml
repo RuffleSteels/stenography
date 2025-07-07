@@ -39,21 +39,24 @@ jobs:
         path: build/wav_stenography
 
   build-linux-arm64:
-    name: Linux ARM64 Build
+    name: Linux ARM64 Build (GLIBC 2.31 Compatible)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up dockcross
-        run: |
-          docker run --rm dockcross/linux-arm64 > ./dockcross
-          chmod +x ./dockcross
+      - name: Pull dockcross image for ARM64
+        run: docker pull dockcross/linux-arm64
 
-      - name: Build using dockcross (ARM64)
+      - name: Generate dockcross script
+        run: docker run --rm dockcross/linux-arm64 > ./dockcross && chmod +x dockcross
+
+      - name: Build binary with older GLIBC target
         run: |
           ./dockcross bash -c "
+            apt-get update &&
+            apt-get install -y cmake build-essential &&
             mkdir -p build-arm64 &&
             cd build-arm64 &&
             cmake -DCMAKE_BUILD_TYPE=Release .. &&
@@ -61,7 +64,7 @@ jobs:
             strip wav_stenography || true
           "
 
-      - name: Upload ARM64 Binary
+      - name: Upload ARM64 binary
         uses: actions/upload-artifact@v4
         with:
           name: wav_stenography_linux_arm64
