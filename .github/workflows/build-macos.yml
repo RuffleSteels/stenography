@@ -30,14 +30,42 @@ jobs:
         make
 
     - name: Strip binary
-      run: |
-        strip build/wav_stenography || true
+      run: strip build/wav_stenography || true
 
     - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
         name: wav_stenography_linux
         path: build/wav_stenography
+
+  build-linux-arm64:
+    name: Linux ARM64 Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up dockcross
+        run: |
+          docker run --rm dockcross/linux-arm64 > ./dockcross
+          chmod +x ./dockcross
+
+      - name: Build using dockcross (ARM64)
+        run: |
+          ./dockcross bash -c "
+            mkdir -p build-arm64 &&
+            cd build-arm64 &&
+            cmake -DCMAKE_BUILD_TYPE=Release .. &&
+            make &&
+            strip wav_stenography || true
+          "
+
+      - name: Upload ARM64 Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wav_stenography_linux_arm64
+          path: build-arm64/wav_stenography
 
   build-windows:
     name: Windows Build
